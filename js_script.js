@@ -65,9 +65,9 @@ window.onload = function() {
     function init() {
         canvas.addEventListener("mousedown", onMouseDown);
         canvas.addEventListener("mouseup", onMouseUp);
-        lvl = 0;
-        lvl_type = 4;
-        win_score = 1000;
+        lvl = 1;
+        lvl_type = 5;
+        win_score = 1500;
         totalScore = 0;
         startTime = 30;
         presentTime = 0;
@@ -94,6 +94,14 @@ window.onload = function() {
         if (matches.length > 0) {
             for (var i=0; i<matches.length; i++) {
                 score += ((matches[i].length * 1 - 3) * 50 + 100) * (i + 1);
+                if (matches[i].type == 8) {
+                    var reductionWidth = (startTimerWidth / startTime);
+                    presentTime += 10;
+                    if (reductionWidth * presentTime > startTimerWidth)
+                     lineTimer.style.width = startTimerWidth + "px";
+                    else
+                    lineTimer.style.width = reductionWidth * presentTime + "px";
+                }
             }
             markMatches();
             removeMatches();
@@ -103,6 +111,9 @@ window.onload = function() {
             gamestate = 'waiting';
         }
     }
+
+
+
     function animation_shift_tiles(dt) {
         shiftTiles();
         isswap = false;
@@ -145,8 +156,11 @@ window.onload = function() {
         animation_time += dt;
 
         if (score >= win_score)  gamewin = true;
-        if (moves.length <= 0)
-            resolveMatches();
+        if (moves.length <= 0){
+            createField();
+            findMoves();
+            findMatches();
+        }
         if (animation_time > animation_interval) {
             if (gamestate == 'waiting') { // Игра ждет действий игрока
                 if ((isaibot) && (!gameover) && (!gamewin)) {
@@ -175,8 +189,6 @@ window.onload = function() {
         if (gamewin) drawGameTotal('Уровень пройден!');
     }
     function drawGameTotal(s){
-        isaibot = false;
-        ai_button.className = 'ai_button';
         showmoves = false;
         context.fillStyle = 'rgba(255, 165, 100, 0.9)';
         context.fillRect(1, 1, canvas.width-2, canvas.height-2);
@@ -260,14 +272,67 @@ window.onload = function() {
     function newLvl() {
         if (time != null)
             clearInterval(time);
-        if (gamewin) lvl++;
+
         totalScore += score + bonusTime * 50;
+        if (gamewin) {
+            lvl++;
+            if ((lvl <= 8)) {
+                if (lvl % 2) {
+                    startTime += 30;
+                    win_score += 3000;
+                }
+                else if (!(lvl % 2)) {
+                    startTime -= 15;
+                    win_score -= 2000;
+                    lvl_type++;
+                }
+                if (lvl == 2) {
+                    win_score = 5000;
+                    startTime = 60;
+                }
+            }
+            else if ((lvl > 8) && (lvl <= 41)) {
+                if (lvl % 2)
+                    startTime += 40;
+                if (!(lvl % 5)) {
+                    startTime -= 70;
+                    win_score -= 2500;
+                    lvl_type++;
+                }
+                if (lvl % 5 == 4) {
+                    startTime -= 30;
+                    win_score -= 1000;
+                }
+                win_score += 1000;
+            }
+            else if (lvl > 41) {
+                startTime += 30;
+                win_score += 3000;
+                if ((lvl_type <= 25) && (!(lvl % 10))) {  //28
+                    lvl_type++;
+                    startTime -= 50;
+                    win_score -= 3000;
+                }
+                else if (lvl % 10 == 1) {
+                    win_score -= 2000;
+                    startTime -= 10;
+                } else if (lvl % 10 == 4) {
+                    win_score -= 5000;
+                    startTime -= 60;
+                }
+                else if (lvl % 10 == 7) {
+                    win_score -= 12000;
+                    startTime -= 190;
+                }
+                if (!(lvl % 41)) {
+                    win_score -= 6000 * (lvl / 41);
+                    startTime -= 120 * (lvl / 41);
+                }
+            }
+        }
         bonusTime = 0;
         score = 0;
-        win_score += 50;
         gamestate = 'waiting';
-        isaibot = false;
-        ai_button.className = 'ai_button';
         showmoves = false;
         time = setInterval(animationTimer, 1000);
         lineTimer.style.width = startTimerWidth + "px";
@@ -312,15 +377,25 @@ window.onload = function() {
     function findMatches() {
         matches = [];
         for (var j=0; j<rows; j++) {
-            var matchlength = 1;
+            var matchlength = 1; var countBonusMatches = 0;
             for (var i=0; i<columns; i++) {
                 var checkmatches = false;
+
+                if(tiles[i][j].type == 6) {
+                    ++countBonusMatches;
+                    if(countBonusMatches >= 3) {
+                        i = columns - 1;
+                        matchlength = rows;
+                    }
+                }
+                else {
+                    countBonusMatches = 0;
+                }
 
                 if (i == columns-1) {
                     checkmatches = true;
                 } else {
-                    if (tiles[i][j].type == tiles[i+1][j].type &&
-                        tiles[i][j].type != -1) {
+                    if (tiles[i][j].type == tiles[i+1][j].type && tiles[i][j].type != -1) {
                         matchlength += 1;
                     } else {
                         checkmatches = true;
@@ -328,8 +403,7 @@ window.onload = function() {
                 }
                 if (checkmatches) {
                     if (matchlength >= 3) {
-                        matches.push({ column: i+1-matchlength, row:j,
-                            length: matchlength, horizontal: true });
+                        matches.push({ column: i+1-matchlength, row:j, length: matchlength, horizontal: true, type: tiles[i][j].type });
                     }
 
                     matchlength = 1;
@@ -342,11 +416,21 @@ window.onload = function() {
             for (var j=0; j<rows; j++) {
                 var checkmatches = false;
 
+                if(tiles[i][j].type == 6) {
+                    ++countBonusMatches;
+                    if(countBonusMatches >= 3) {
+                        j = rows - 1;
+                        matchlength = columns;
+                    }
+                }
+                else {
+                    countBonusMatches = 0;
+                }
+
                 if (j == rows-1) {
                     checkmatches = true;
                 } else {
-                    if (tiles[i][j].type == tiles[i][j+1].type &&
-                        tiles[i][j].type != -1) {
+                    if (tiles[i][j].type == tiles[i][j+1].type && tiles[i][j].type != -1) {
                         matchlength += 1;
                     } else {
                         checkmatches = true;
@@ -354,8 +438,7 @@ window.onload = function() {
                 }
                 if (checkmatches) {
                     if (matchlength >= 3) {
-                        matches.push({ column: i, row:j+1-matchlength,
-                            length: matchlength, horizontal: false });
+                        matches.push({ column: i, row:j+1-matchlength, length: matchlength, horizontal: false, type: tiles[i][j].type });
                     }
 
                     matchlength = 1;
@@ -364,6 +447,7 @@ window.onload = function() {
         }
         return matches.length > 0;
     }
+
 
     function findMoves() {
         moves = []
@@ -394,7 +478,7 @@ window.onload = function() {
 
 
     function markMatches(){
-        for (var i=0; i<matches.length; i++) {
+        for (var i = 0; i<matches.length; i++) {
             var h = 0;
             var v = 0;
             for (var j=0; j<matches[i].length; j++) {
@@ -481,26 +565,29 @@ window.onload = function() {
         var mup = getMouseTile(getMousePos(canvas, e));
         if ((gameover || gamewin) && mdown.x != -1 && mup.x != -1 && mdown.y != -1 && mup.y != -1) newLvl();
         else if (mdown.x == mup.x && mdown.y == mup.y) {
-            var  column_old = mup.x;
+            var column_old = mup.x;
             var row_old = mup.y;
-            if ((column_new != -1 ) && (row_new != -1) && (column_old != -1 ) && (row_old != -1)) {
-                if ((column_old == column_new) && (row_old == row_new)) {
-                    column_new = -1;
-                    row_new = -1;
-                    return;
-                }
-                if ((column_old != column_new) || (row_old != row_new)) {
-                    if (Math.abs(row_old - row_new) + Math.abs(column_old - column_new) == 1) {
-                        animationSwap(column_old, row_old, column_new, row_new);
-                        if (findMatches()) resolveMatches();
-                        else
-                            animationSwap(column_old, row_old, column_new, row_new);
+
+                if ((column_new != -1 ) && (row_new != -1) && (column_old != -1 ) && (row_old != -1)) {
+                    if (!((tiles[column_old][row_old].type == 7) || (tiles[column_new][row_new].type == 7))){
+                    if ((column_old == column_new) && (row_old == row_new)) {
                         column_new = -1;
                         row_new = -1;
                         return;
                     }
+                    if ((column_old != column_new) || (row_old != row_new)) {
+                        if (Math.abs(row_old - row_new) + Math.abs(column_old - column_new) == 1) {
+                            animationSwap(column_old, row_old, column_new, row_new);
+                            if (findMatches()) resolveMatches();
+                            else
+                                animationSwap(column_old, row_old, column_new, row_new);
+                            column_new = -1;
+                            row_new = -1;
+                            return;
+                        }
+                    }
+                     }
                 }
-            }
             column_new = column_old;
             row_new = row_old;
         }
@@ -539,16 +626,16 @@ window.onload = function() {
             lineTimer.style.width = reductionWidth * presentTime + "px";
         }
     }
-
     function animationCook() {
         var cookAnimation = document.getElementById("cookAnimation");
+        var mid = Math.floor(startTime / 2);
         if (presentTime == startTime)
             cookAnimation.src = "images/1.gif";
-        else if (presentTime == Math.floor(startTime / 2) + 4 || presentTime == 4)
-            cookAnimation.src == "images/3.gif";
+        else if (presentTime == mid + 4 || presentTime == 4)
+            cookAnimation.src = "images/3.gif";
         else if (presentTime == 0 || gamewin)
-            cookAnimation.src == "images/3.gif";;
-        else
+            ;
+        else if (presentTime == mid)
             cookAnimation.src = "images/2.gif";
     }
     init();
