@@ -61,6 +61,8 @@ window.onload = function() {
     hint_button.className = 'hint_button';
     var ai_button = document.getElementById("button_ai"); //бот
     ai_button.className = 'ai_button';
+    var auth_button = document.getElementById("button_auth");
+    auth_button.className = 'auth_button';
 
     function init() {
         canvas.addEventListener("mousedown", onMouseDown);
@@ -93,14 +95,13 @@ window.onload = function() {
         findMatches();
         if (matches.length > 0) {
             for (var i=0; i<matches.length; i++) {
-                score += ((matches[i].length * 1 - 3) * 50 + 100) * (i + 1);
+                if (matches[i].type == 7)
+                    score += ((matches[i].length * 1 - 3) * 100 + 200) * (i + 1);
+                else
+                    score += ((matches[i].length * 1 - 3) * 50 + 100) * (i + 1);
                 if (matches[i].type == 8) {
-                    var reductionWidth = (startTimerWidth / startTime);
                     presentTime += 10;
-                    if (reductionWidth * presentTime > startTimerWidth)
-                     lineTimer.style.width = startTimerWidth + "px";
-                    else
-                    lineTimer.style.width = reductionWidth * presentTime + "px";
+                    animationTimer();
                 }
             }
             markMatches();
@@ -270,25 +271,24 @@ window.onload = function() {
     }
 
     function newLvl() {
+        totalScore += score + bonusTime * 50;
         if (time != null)
             clearInterval(time);
-
-        totalScore += score + bonusTime * 50;
         if (gamewin) {
             lvl++;
             if ((lvl <= 8)) {
                 if (lvl % 2) {
-                    startTime += 30;
-                    win_score += 3000;
+                    startTime -= 15;
+                    win_score -= 1000;
                 }
                 else if (!(lvl % 2)) {
-                    startTime -= 15;
-                    win_score -= 2000;
+                    startTime += 30;
+                    win_score += 3000;
                     lvl_type++;
                 }
                 if (lvl == 2) {
-                    win_score = 5000;
-                    startTime = 60;
+                    win_score = 3000;
+                    startTime = 80;
                 }
             }
             else if ((lvl > 8) && (lvl <= 41)) {
@@ -308,7 +308,7 @@ window.onload = function() {
             else if (lvl > 41) {
                 startTime += 30;
                 win_score += 3000;
-                if ((lvl_type <= 25) && (!(lvl % 10))) {  //28
+                if ((lvl_type <= 27) && (!(lvl % 10))) {
                     lvl_type++;
                     startTime -= 50;
                     win_score -= 3000;
@@ -598,17 +598,33 @@ window.onload = function() {
     }
     hint_button.onclick = function () {
         showmoves = !showmoves;
-    }
+}
     ai_button.onclick = function () {
         isaibot = !isaibot;
         if (isaibot) ai_button.className = 'active_ai_button';
         else ai_button.className = 'ai_button';
     }
-    
+    auth_button.onclick = function() {
+        var authPopup = document.getElementById("authWin");
+        authPopup.style.display = "block";
+    }
+
+    var close_button = document.getElementById("closeButton");
+    close_button.onclick = function () {
+        var authPopup = document.getElementById("authWin");
+    }
+
+    var show_result = document.getElementById("showResult");
+    show_result.onclick = function () {
+        var authPopup = document.getElementById("authWin");
+        set_result();
+    }
+
     function animationTimer() {
-        animationCook();
         if (presentTime == 0) {
-            clearInterval(time)
+            clearInterval(time);
+            lineTimer.style.width = "0px";
+            gameover = true;
         }
         presentTime--;
         if (gamewin) {
@@ -617,15 +633,15 @@ window.onload = function() {
             lineTimer.style.width = "0px";
             return;
         }
-        if (presentTime == 0) {
-            lineTimer.style.width = "0px";
-            gameover = true;
-        }
         else {
-            var reductionWidth = (startTimerWidth / startTime);
-            lineTimer.style.width = reductionWidth * presentTime + "px";
+            var newWidth = (startTimerWidth / startTime) * presentTime;
+            if (newWidth > startTimerWidth)
+                lineTimer.style.width =  startTimerWidth + "px";
+            else
+                lineTimer.style.width = newWidth + "px";
         }
     }
+
     function animationCook() {
         var cookAnimation = document.getElementById("cookAnimation");
         var mid = Math.floor(startTime / 2);
@@ -634,9 +650,84 @@ window.onload = function() {
         else if (presentTime == mid + 4 || presentTime == 4)
             cookAnimation.src = "images/3.gif";
         else if (presentTime == 0 || gamewin)
-            ;
+           cookAnimation.src = "images/4.gif";//4
         else if (presentTime == mid)
             cookAnimation.src = "images/2.gif";
+    }
+
+    var username = '';
+    var result_id = "-1";
+    var database = firebase.database();
+    var UserScore = [];
+
+
+    function connect_db() {
+        var returnCode = "ok";
+        firebase.auth().signInWithEmailAndPassword("summer_game@test.com", "12345678").catch(function(error) {
+            var errorCode = error.code;
+            var errorMessage = error.message;
+            returnCode = errorCode;
+        });
+        return returnCode;
+    }
+
+    function add_user(username, score, id) {
+        database.ref("scoreboard/" + id).set({
+            username: username,
+            score   : score
+        });
+    }
+
+
+    function get_result(callback) {
+
+        database.ref('scoreboard/').orderByChild('score').limitToLast(10).once('value', function(value) {
+            var data = value.val();
+            var result = [];
+            for (var key in data) {
+                if (data.hasOwnProperty(key))
+                    result.push(data[key]);
+            }
+            result.reverse();
+            callback(result);
+        });
+    }
+
+    function set_result() {
+        var inp = document.getElementById('login').value;
+        if (inp == "") {
+            alert("Error");
+        } else {
+            if (inp != username) {
+                username = inp;
+                result_id = database.ref().child('scoreboard').push().key;
+            }
+            if (connect_db() != 'ok') alert('error');
+            add_user(username, totalScore, result_id);
+            get_table();
+        }
+    }
+    function get_table() {
+        get_result(function(usersScores) {
+            for (var i = 0; i < usersScores.length; i++) {
+                add_row(i + 1, usersScores[i].username, usersScores[i].score);
+            }
+        });
+    }
+    var result_table = document.getElementById("result_table");
+
+    function add_row(id, name, score) {
+        var table_row = document.createElement('tr');
+        var id_row = document.createElement('td');
+        id_row.innerText = id;
+        var user_row = document.createElement('td');
+        user_row.innerText = name;
+        var score_row = document.createElement('td');
+        score_row.innerText = score;
+        table_row.appendChild(id_row);
+        table_row.appendChild(user_row);
+        table_row.appendChild(score_row);
+        result_table.appendChild(table_row);
     }
     init();
 };

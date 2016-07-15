@@ -18,7 +18,7 @@ body {
     top: 170px;
     cursor: pointer;
 }
-.reset_button, .hint_button, .ai_button, .active_ai_button{
+.reset_button, .hint_button, .ai_button, .active_ai_button, .auth_button{
     border-radius: 15px;
     position: absolute;
     width: 90px;
@@ -46,6 +46,10 @@ body {
 .active_ai_button{
     background-image: url("images/actb3.png");
     left: 300px;
+}
+.auth_button {
+    background-image: url("images/b4.png");
+    left: 1150px;
 }
 
 #score {
@@ -139,3 +143,42 @@ body {
     border-color: #506d13;
     text-align: center;
 }
+#authWin {
+    position: absolute;
+    top: 100px;
+    left: 500px;
+    width: 500px;
+    height: 500px;
+    background-color: #fef290;
+    font-family: "Comic Sans MS";
+    font-size: 30px;
+    color: darkred;
+    border: solid;
+    border-width: 10px;
+    border-radius: 30px;
+    border-color: #506d13;
+    text-align: center;
+    display: none;
+}
+
+#closeButton {
+    width: 20px;
+    height: 18px;
+    background-image: url("images/close.gif");
+    -moz-background-size: 100%;
+    -webkit-background-size: 100%;
+    -o-background-size: 100%;
+    background-size: 100%;
+}
+
+#showResult {
+    width: 20px;
+    height: 18px;
+    background-image: url("images/scores.png");
+    -moz-background-size: 100%;
+    -webkit-background-size: 100%;
+    -o-background-size: 100%;
+    background-size: 100%;
+}
+
+
